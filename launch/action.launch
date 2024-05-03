@@ -1,0 +1,7 @@
+<launch>
+    <!-- run state manager node -->
+    <!-- node name="state_manager" pkg="q_learning_project" type="state_manager.py" output="screen" / -->
+
+    <!-- run robocourrier node -->
+    <!-- node name="q_praxis" pkg="q_learning_project" type="q_praxis.py" output="screen" / -->
+</launch>
