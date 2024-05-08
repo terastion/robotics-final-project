@@ -2,6 +2,6 @@
     <!-- run state manager node -->
     <!-- node name="state_manager" pkg="q_learning_project" type="state_manager.py" output="screen" / -->
 
-    <!-- run robocourrier node -->
-    <!-- node name="q_praxis" pkg="q_learning_project" type="q_praxis.py" output="screen" / -->
+    <!-- run robocourier node -->
+    <node name="robocourier" pkg="robocourier" type="main_node.py" output="screen" />
 </launch>

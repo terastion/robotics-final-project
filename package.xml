@@ -1,8 +1,8 @@
 <package format="2">
-  <name>robocourrier</name>
+  <name>robocourier</name>
   <version>0.0.0</version>
   <description>
-  The robocourrier package
+  The robocourier package
   </description>
   <maintainer email="sarahsebo@uchicago.edu">Sarah Sebo</maintainer>
   <license>MIT</license>
