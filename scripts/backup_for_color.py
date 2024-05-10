@@ -8,33 +8,6 @@ from geometry_msgs.msg import Twist, Vector3
 from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty
 
-# HSV color ranges for tape maze
-color_ranges = {
-    "orange": [np.array([0,0,0]), np.array([0,0,0])],
-    "blue": [np.array([0,0,0]), np.array([0,0,0])]
-}
-
-# mapping of targets to nodes in map
-# TODO: supply these
-target_nodes = [None, None, None]
-
-# robot action order goes:
-# await_action (waiting for robot to receive next object/target)
-# calculate_obj_path (perform A* from robot's current position to object area)
-# pursue_obj_area (follow calculated path to object area)
-## two substates:
-# obj_turn_left (turn left for first object)
-###########################################
-# process_obj (perform object recognition on object)
-# (skip state below if object successfully detected)
-# obj_turn_left (turn right for next object in case incorrect object detected)
-###########################################
-# grab_obj (grab object)
-# calculate_target_path (perform A* from robot's current position to desired target)
-# pursue_target (follow calculated path to target)
-# drop_obj (place object down at target)
-# (after this point, go back to await_action)
-
 class RoboCourrier(object):
     def __init__(self):
         # initialize this node
@@ -43,13 +16,11 @@ class RoboCourrier(object):
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
         # TODO: actually determine these values
-        self.position = None
+        self.color_ranges = {
+            "orange": [np.array([0,0,0]), np.array([0,0,0])],
+            "blue": [np.array([0,0,0]), np.array([0,0,0])]
+        }
         self.state = "await_action"
-        self.velocity = Twist()
-
-
-        ########################################################################
-
 
         ### CONNECTIONS FOR ROBOT COMPONENTS ###
         # establish range_update subscriber
@@ -72,9 +43,6 @@ class RoboCourrier(object):
         #self.robot_gripper = moveit_commander.MoveGroupCommander("gripper")
 
 
-        ########################################################################
-
-
         ### CONNECTIONS WITH ACTION MANAGER'S TOPICS ###
         # establish /robocourier/robot_action subscriber
         rospy.Subscriber("/robocourier/robot_action", RobotAction, self.handle_action)
@@ -85,52 +53,40 @@ class RoboCourrier(object):
         self.state_pub = rospy.Publisher("/robocourier/state", Empty, queue_size=10)
 
 
-        ########################################################################
-
-
         # send first ping message to action manager
         rospy.sleep(3)
         self.state_pub.publish(Empty())
 
         rospy.spin()
 
-
     # handler for action manager
     def handle_action(self, data):
         print("received action {}".format(data))
-        # check for empty action, signaling completion
+        # check for empty action
         if data.obj == "":
-            # set object and tag to empty values
+            # do nothing
             self.obj = ""
             self.tag = -1
-        # otherwise, update robot's goals and begin journey to object area
+        # otherwise, update robot's goals and transition to next state
         else:
             self.obj = data.obj
             self.tag = data.tag
-            
-            # transition robot to next state and calculate object path
-            self.state = "calculate_obj_path"
-            target_node = target_nodes[data.tag]
-            self.find_path(target_node)
-
+            self.state = "find_object"
 
     # handler for range updater
     def handle_range(self, data):
         self.color_ranges[data.color][int(data.is_upper)] = np.array(data.range)
         print("updated range to {}".format(data.range))
 
-
     # handler for scanner
     def handle_scan(self, data):
         # TODO
         pass
 
-
     # handler for rbpi camera
     def handle_image(self, data):
         # TODO
         self.process_for_path(data)
-
 
     # process image to see if specified color is in bottom area
     def process_for_path(self, data):
@@ -172,22 +128,6 @@ class RoboCourrier(object):
         # show live image feed
         cv2.imshow("window", image)
         cv2.waitKey(3)
-
-
-    # perform A* algorithm from self.position to destination
-    def find_path(self, destination):
-        # TODO
-
-        # after path is calculated, transition to pursue_obj_area state
-        self.state = "pursue_obj_area"
-        return
-
-
-    # main thread loop, used for managing time for driving straight and turning
-    def main_loop(self):
-        # TODO
-        pass
-
 
 if __name__ == "__main__":
     node = RoboCourrier()
