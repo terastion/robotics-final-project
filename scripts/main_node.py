@@ -22,7 +22,10 @@ target_nodes = [None, None, None]
 # await_action (waiting for robot to receive next object/target)
 # calculate_obj_path (perform A* from robot's current position to object area)
 # pursue_obj_area (follow calculated path to object area)
-## two substates:
+## three substates:
+### wait_for_camera (have camera send first movement command; transition to drive_straight immediately after)
+### drive_straight (for either driving forward or backward)
+### turning (for turning left or right)
 # obj_turn_left (turn left for first object)
 ###########################################
 # process_obj (perform object recognition on object)
@@ -44,8 +47,12 @@ class RoboCourrier(object):
         # provide list of color ranges to be use/be updated
         # TODO: actually determine these values
         self.position = None
+        self.orientation = None
+        self.path = []
+        self.path_index = 0
+        self.move_backward = False
         self.state = "await_action"
-        self.velocity = Twist()
+        self.twist = Twist()
 
 
         ########################################################################
@@ -129,7 +136,44 @@ class RoboCourrier(object):
     # handler for rbpi camera
     def handle_image(self, data):
         # TODO
-        self.process_for_path(data)
+        # perform action only when state is either pursue_obj_area or drive_straight
+        if self.state == "wait_for_camera" or self.state == "drive_straight":
+            # process image in search of path pixels
+            masked_image = self.process_for_path(data)
+
+            # use moments() function to find center of path pixels
+            M = cv2.moments(masked_image)
+
+            # check if there were any path pixels
+            if M['m00'] > 0:
+                # center of detected pixels in the image
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+
+                # if current state is wait_for_camera, give robot either forward or backward vel
+                if self.state == "wait_for_camera":
+                    if self.move_backward:
+                        self.twist.velocity.x = -0.1
+                    else:
+                        self.twist.velocity.x = 0.1
+                 
+                # make bot turn depending on how far away center of pixels are from center
+                e_t = (w // 2) - cx
+                k_p = 0.3 / (w // 2)
+                self.twist.angular.z = e_t * k_p
+
+                # check once again to make sure robot hasn't transitioned back to pursue_obj_area
+                if self.state != "wait_for_camera" and self.state != "drive_straight":
+                    # if it has, cancel the movement
+                    self.vel_pub.publish(Twist())
+
+                # otherwise, make robot move as normal
+                else:
+                    self.vel_pub.publish(twist)
+
+                # if current state is wait_for_camera, update to drive_straight to notify main loop
+                if self.state == "wait_for_camera":
+                    self.state = "drive_straight"
 
 
     # process image to see if specified color is in bottom area
@@ -153,25 +197,10 @@ class RoboCourrier(object):
         search_top = int(3*h/4)
         search_bot = int(3*h/4 + 20)
         mask[0:search_top, 0:w] = 0
-        mask[search_top:search_bot, 0:left] = 0
-        mask[search_top:search_bot, right:w] = 0
-        mask[search_bot:h, 0:w] = 0
+        mask[search_top:h, 0:left] = 0
+        mask[search_top:h, right:w] = 0
 
-        # use moments() function to find center of pixels
-        M = cv2.moments(mask)
-
-        # check if there are any pixels found
-        if M['m00'] > 0:
-            # center of detected pixels in the image
-            cx = int(M['m10']/M['m00'])
-            cy = int(M['m01']/M['m00'])
-
-            # draw a red circle in the debugging window to indicate center point of pixels
-            cv2.circle(image, (cx, cy), 20, (0,0,255), 1)
-
-        # show live image feed
-        cv2.imshow("window", image)
-        cv2.waitKey(3)
+        return mask
 
 
     # perform A* algorithm from self.position to destination
@@ -185,9 +214,53 @@ class RoboCourrier(object):
 
     # main thread loop, used for managing time for driving straight and turning
     def main_loop(self):
+        while True:
+            # if state is pursue_obj_area, calculate target and transition state accordingly
+            if self.state == "pursue_obj_area":
+                # determine next action
+                action = self.get_next_action()
+                
+                # if robot should drive forward or back, update state accordingly
+                if action == "forward" or action == "back":
+                    self.move_backward = action == "back"
+                    
+                    # transition state to wait_for_camera
+                    self.state = "wait_for_camera"
+
+                # if robot should turn left or right, do so here
+                elif action == "left" or action == "right":
+                    # TODO: write left-right turning code
+                    pass
+
+            # if state is drive_forward, begin waiting loop
+            elif self.state == "drive_forward":
+                #TODO: calculate time for robot to travel from current location to target and sleep
+
+                # stop robot after waiting necessary amount of time
+                self.twist.velocity.x = 0
+                self.vel_pub.publish(Twist())
+
+                # check if robot has reached end of path
+                if self.path_index == len(self.path) - 1:
+                    # transition to obj_turn_left state
+                    self.state = "obj_turn_left"
+
+                    # TODO: actually perform the turning and obj scanning
+
+                # otherwise, update robot position and continue along path
+                else:
+                    # update robot position
+                    self.path_index += 1
+                    self.position = self.path[self.path_index]
+
+                    # transition state back to pursue_obj_area
+                    self.state = "pursue_obj_area"
+
+    # using current position+rotation, determine whether bot should drive straight (forward or back)
+    # or turn left/right
+    def get_next_action(self):
         # TODO
         pass
-
 
 if __name__ == "__main__":
     node = RoboCourrier()
