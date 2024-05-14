@@ -1,4 +1,5 @@
 import csv 
+import math
 def read_csv_to_matrix(filename):
     with open(filename, 'r') as file:
         reader = csv.reader(file)
@@ -73,8 +74,7 @@ def read_csv_to_matrix(filename):
 
     print(f"2D array has been written")
 
-import csv
-import math
+
 
 def calculate_euclidean_distance(x1, y1, x2, y2):
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
@@ -106,7 +106,7 @@ output_csv = 'euclidean_dist_matrix.csv'
 with open(output_csv, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(distance_matrix)
-
+print(coordinates[3])
 print(f"Distance matrix has been written to {output_csv}")
 
 
