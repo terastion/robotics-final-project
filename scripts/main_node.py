@@ -10,7 +10,7 @@ from std_msgs.msg import Empty
 
 # HSV color ranges for tape maze
 color_ranges = {
-    "orange": [np.array([0,0,0]), np.array([0,0,0])],
+    "orange": [np.array([0,35,204]), np.array([14,101,229])],
     "blue": [np.array([0,0,0]), np.array([0,0,0])]
 }
 
