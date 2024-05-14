@@ -42,17 +42,20 @@ def dijkstra(adj_matrix, source):
                 predecessor[v] = u
 
     return dist, predecessor
+
 def convert_to_index(node_name):
     if len(node_name) == 2:
         return 26 + ord(node_name.lower()[1])-97
     elif len(node_name) == 1:
         return ord(node_name.lower())-97
+
 def convert_to_letter(num):
     if num <= 26:
         return chr(num+97)
     else:
         num = num - 26
         return "A" + chr(num+97)
+
 def shortest_path(predecessor, source, dest):
     """Reconstructs the shortest path from source to dest using the predecessor array."""
     path = []

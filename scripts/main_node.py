@@ -47,12 +47,15 @@ class RoboCourrier(object):
         # provide list of color ranges to be use/be updated
         # TODO: actually determine these values
         self.position = None
-        self.orientation = None
+        self.direction = None
         self.path = []
         self.path_index = 0
         self.move_backward = False
         self.state = "await_action"
         self.twist = Twist()
+
+        # read adjacency matrix file to initialize additional matrices
+        self.init_matrices("adjacency.csv")
 
 
         ########################################################################
@@ -99,7 +102,43 @@ class RoboCourrier(object):
         rospy.sleep(3)
         self.state_pub.publish(Empty())
 
-        rospy.spin()
+        #rospy.spin()
+        self.main_loop()
+
+
+    # initialize adjacency and direction matrices from file
+    def init_matrices(self, filename):
+        # read file matrix into object
+        with open(filename, 'r') as file:
+            reader = csv.reader(file)
+            matrix = list(reader)
+
+        # initialize adjacency and direction matrices
+        self.adj_matrix = []
+        self.dir_matrix = []
+        
+        # iterate through every row in file matrix
+        for row in matrix:
+            adj_row = []
+            dir_row = []
+
+            # iterate through every cell in row
+            for cell in row:
+                # if cell is empty, append invalid values to adj/dir rows
+                if cell == '[]':
+                    adj_row.append(float('inf'))
+                    dir_row.append(float('inf'))
+                # otherwise, parse cell values
+                else:
+                    # convert string "[distance, direction]" into values
+                    cell = cell[1:-1]
+                    distance, direction = cell.split(",")
+                    adj_row.append(float(distance))
+                    dir_row.append(int(direction))
+            
+            # append adj/dir rows to matrices
+            self.adj_matrix.append(adj_row)
+            self.dir_matrix.append(dir_row)
 
 
     # handler for action manager
@@ -136,8 +175,8 @@ class RoboCourrier(object):
     # handler for rbpi camera
     def handle_image(self, data):
         # TODO
-        # perform action only when state is either pursue_obj_area or drive_straight
-        if self.state == "wait_for_camera" or self.state == "drive_straight":
+        # perform action only when state is drive_straight
+        if self.state == "drive_straight":
             # process image in search of path pixels
             masked_image = self.process_for_path(data)
 
@@ -150,30 +189,24 @@ class RoboCourrier(object):
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
 
-                # if current state is wait_for_camera, give robot either forward or backward vel
-                if self.state == "wait_for_camera":
-                    if self.move_backward:
-                        self.twist.velocity.x = -0.1
-                    else:
-                        self.twist.velocity.x = 0.1
-                 
                 # make bot turn depending on how far away center of pixels are from center
                 e_t = (w // 2) - cx
                 k_p = 0.3 / (w // 2)
-                self.twist.angular.z = e_t * k_p
+
+                # invert the correction if bot is driving backwards
+                if self.drive_backward:
+                    self.twist.angular.z = -e_t * k_p
+                else:
+                    self.twist.angular.z = e_t * k_p
 
                 # check once again to make sure robot hasn't transitioned back to pursue_obj_area
-                if self.state != "wait_for_camera" and self.state != "drive_straight":
+                if self.state != "drive_straight":
                     # if it has, cancel the movement
                     self.vel_pub.publish(Twist())
 
                 # otherwise, make robot move as normal
                 else:
                     self.vel_pub.publish(twist)
-
-                # if current state is wait_for_camera, update to drive_straight to notify main loop
-                if self.state == "wait_for_camera":
-                    self.state = "drive_straight"
 
 
     # process image to see if specified color is in bottom area
@@ -203,9 +236,44 @@ class RoboCourrier(object):
         return mask
 
 
-    # perform A* algorithm from self.position to destination
+    # perform dijkstra's algorithm from self.position to destination
     def find_path(self, destination):
-        # TODO
+        # initialize arrays for dijkstra's algorithm
+        source = self.position
+        n = len(self.adj_matrix)
+        dist = [float('inf')] * n
+        dist[source] = 0
+        visited = [False] * n
+        predecessor = [-1] * n
+
+        # perform dijkstra's algorithm
+        for _ in range(n):
+            # find vertex with the minimum distance from the set of vertices not yet visited
+            u = min((v for v in range(n) if not visited[v]), key=lambda v: dist[v])
+            visited[u] = True
+
+            # update distance of the adjacent vertices of the selected vertex
+            for v in range(n):
+                if self.adj_matrix[u][v] > 0 and not visited[v] and dist[v] > dist[u] + self.adj_matrix[u][v]:
+                    dist[v] = dist[u] + self.adj_matrix[u][v]
+                    predecessor[v] = u
+
+        # reconstruct the shortest path from source to destination using the predecessor array
+        path = []
+        step = destination
+        while step != -1:
+            # add current step to array and backtrack w/predecessor array
+            path.append(step)
+            step = predecessor[step]
+
+            # if backtrack leads to source, end loop
+            if step == source:
+                path.append(step)
+                break
+        
+        # update self.path with the path array reversed so robot can follow it to destination array
+        self.path = path[::-1]
+        self.path_index = 0
 
         # after path is calculated, transition to pursue_obj_area state
         self.state = "pursue_obj_area"
@@ -222,45 +290,81 @@ class RoboCourrier(object):
                 
                 # if robot should drive forward or back, update state accordingly
                 if action == "forward" or action == "back":
+                    # update twist linear velocity for camera function
                     self.move_backward = action == "back"
+                    if self.move_backward:
+                        self.twist.linear.x = -0.1
+                    else:
+                        self.twist.linear.x = 0.1
+                    self.twist.angular.z = 0
                     
-                    # transition state to wait_for_camera
-                    self.state = "wait_for_camera"
+                    # TODO: make sure this calculation is correct
+                    # since distances are reported in centimeters, also report speed in cm/s
+                    next_node = self.path[self.path_index + 1]
+                    dist = self.adj_matrix[self.position][next_node]
+                    assert(dist != float('inf'))
+                    time_to_wait = dist / 10
+
+                    # transition state to drive_straight to allow camera to process orange pixels
+                    self.state = "drive_straight"
+
+                    # drive forward
+                    self.vel_pub.publish(self.twist)
+
+                    # sleep so robot can drive to target in distance
+                    rospy.sleep(time_to_wait)
+
+                    # stop robot
+                    self.state = "pursue_obj_area"
+                    self.twist.linear.x = 0
+                    self.twist.angular.z = 0
+                    self.vel_pub.publish(self.twist)
+
+                    # check if robot has reached end of path
+                    if self.path_index == len(self.path) - 1:
+                        self.state = "obj_turn_left"
+                    # otherwise, update robot position and continue along path
+                    else:
+                        # update robot position
+                        self.path_index += 1
+                        self.position = self.path[self.path_index]
+
+                        # transition state back to pursue_obj_area to reenter loop
+                        self.state = "pursue_obj_area"
 
                 # if robot should turn left or right, do so here
                 elif action == "left" or action == "right":
                     # TODO: write left-right turning code
                     pass
 
-            # if state is drive_forward, begin waiting loop
-            elif self.state == "drive_forward":
-                #TODO: calculate time for robot to travel from current location to target and sleep
-
-                # stop robot after waiting necessary amount of time
-                self.twist.velocity.x = 0
-                self.vel_pub.publish(Twist())
-
-                # check if robot has reached end of path
-                if self.path_index == len(self.path) - 1:
-                    # transition to obj_turn_left state
-                    self.state = "obj_turn_left"
-
-                    # TODO: actually perform the turning and obj scanning
-
-                # otherwise, update robot position and continue along path
-                else:
-                    # update robot position
-                    self.path_index += 1
-                    self.position = self.path[self.path_index]
-
-                    # transition state back to pursue_obj_area
-                    self.state = "pursue_obj_area"
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
     # or turn left/right
     def get_next_action(self):
-        # TODO
-        pass
+        # make sure robot position and node at path index are the same
+        assert(self.position == self.path[self.path_index])
+
+        # init some variables
+        cur_node = self.position
+        cur_dir = self.direction
+
+        # get next node in path and direction needed to get there
+        next_node = self.path[self.path_index + 1]
+        next_dir = self.dir_matrix[cur_node][next_node]
+
+        # compare current direction and necessary direction
+        # if current and necessary direction are the same, robot should drive forward
+        if self.direction == next_dir:
+            return "forward"
+        # if current and necessary direction are 180 deg apart, robot should drive backwards
+        elif abs(self.direction - next_dir) == 180:
+            return "back"
+        # if necessary direction is 90 degrees from current direction, robot should turn right
+        elif (self.direction + 90) % 360 == next_dir:
+            return "right"
+        # otherwise, turn left
+        else:
+            return "left"
 
 if __name__ == "__main__":
     node = RoboCourrier()
