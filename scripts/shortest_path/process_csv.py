@@ -72,7 +72,43 @@ def read_csv_to_matrix(filename):
         writer.writerows(coordinates)
 
     print(f"2D array has been written")
-    
+
+import csv
+import math
+
+def calculate_euclidean_distance(x1, y1, x2, y2):
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+# Read the coordinates from the CSV file
+input_csv = 'coordinates.csv'
+coordinates = []
+
+with open(input_csv, mode='r') as file:
+    reader = csv.reader(file)
+    for row in reader:
+        x, y = map(float, row)  # Ensure that coordinates are read as floats
+        coordinates.append((x, y))
+
+# Calculate the Euclidean distance matrix
+num_nodes = len(coordinates)
+distance_matrix = [[0] * num_nodes for _ in range(num_nodes)]
+
+for i in range(num_nodes):
+    for j in range(num_nodes):
+        if i != j:
+            x1, y1 = coordinates[i]
+            x2, y2 = coordinates[j]
+            distance_matrix[i][j] = calculate_euclidean_distance(x1, y1, x2, y2)
+
+# Write the distance matrix to a new CSV file
+output_csv = 'euclidean_dist_matrix.csv'
+
+with open(output_csv, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(distance_matrix)
+
+print(f"Distance matrix has been written to {output_csv}")
+
 
 read_csv_to_matrix('adjacency.csv')
 
