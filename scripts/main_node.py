@@ -3,6 +3,8 @@
 import rospy, cv2, cv_bridge, moveit_commander
 import numpy as np
 import math
+import os
+import csv
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist, Vector3
 from robocourier.msg import RangeUpdate, RobotAction
@@ -16,7 +18,13 @@ color_ranges = {
 
 # mapping of targets to nodes in map
 # TODO: supply these
-target_nodes = [None, None, None]
+target_nodes = {
+    1: 0,
+    2: None,
+    3: None
+}
+
+path_prefix = os.path.dirname(__file__) + "/"
 
 # robot action order goes:
 # await_action (waiting for robot to receive next object/target)
@@ -46,8 +54,8 @@ class RoboCourrier(object):
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
         # TODO: actually determine these values
-        self.position = None
-        self.direction = None
+        self.position = 32 # should be 32 for starting node
+        self.direction = 90
         self.path = []
         self.path_index = 0
         self.move_backward = False
@@ -55,7 +63,7 @@ class RoboCourrier(object):
         self.twist = Twist()
 
         # read adjacency matrix file to initialize additional matrices
-        self.init_matrices("adjacency.csv")
+        self.init_matrices(path_prefix + "adjacency.csv")
 
 
         ########################################################################
@@ -156,13 +164,14 @@ class RoboCourrier(object):
             
             # transition robot to next state and calculate object path
             self.state = "calculate_obj_path"
+            print("transitioning to calculate object path state and calculating path")
             target_node = target_nodes[data.tag]
             self.find_path(target_node)
 
 
     # handler for range updater
     def handle_range(self, data):
-        self.color_ranges[data.color][int(data.is_upper)] = np.array(data.range)
+        color_ranges[data.color][int(data.is_upper)] = np.array(data.range)
         print("updated range to {}".format(data.range))
 
 
@@ -177,14 +186,34 @@ class RoboCourrier(object):
         # TODO
         # perform action only when state is drive_straight
         if self.state == "drive_straight":
-            # process image in search of path pixels
-            masked_image = self.process_for_path(data)
+            # convert ROS message to cv2 and hsv
+            image = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+            # retrieve lower and upper bounds for what to consider desired color
+            # hardcoded color for now
+            lower_range, upper_range = color_ranges["orange"]
+
+            # remove all pixels that aren't within desired color range
+            mask = cv2.inRange(hsv, lower_range, upper_range)
+
+            # limit pixel search for only pixels in center-bottom range
+            h, w, d = image.shape
+            middle_index = w // 2
+            left = middle_index - 100
+            right = middle_index + 100
+            search_top = int(3*h/4)
+            search_bot = int(3*h/4 + 20)
+            mask[0:search_top, 0:w] = 0
+            mask[search_top:h, 0:left] = 0
+            mask[search_top:h, right:w] = 0
 
             # use moments() function to find center of path pixels
-            M = cv2.moments(masked_image)
+            M = cv2.moments(mask)
 
             # check if there were any path pixels
             if M['m00'] > 0:
+                print("orange pixels detected")
                 # center of detected pixels in the image
                 cx = int(M['m10']/M['m00'])
                 cy = int(M['m01']/M['m00'])
@@ -194,7 +223,7 @@ class RoboCourrier(object):
                 k_p = 0.3 / (w // 2)
 
                 # invert the correction if bot is driving backwards
-                if self.drive_backward:
+                if self.move_backward:
                     self.twist.angular.z = -e_t * k_p
                 else:
                     self.twist.angular.z = e_t * k_p
@@ -206,34 +235,7 @@ class RoboCourrier(object):
 
                 # otherwise, make robot move as normal
                 else:
-                    self.vel_pub.publish(twist)
-
-
-    # process image to see if specified color is in bottom area
-    def process_for_path(self, data):
-        # convert ROS message to cv2 and hsv
-        image = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-        # retrieve lower and upper bounds for what to consider desired color
-        # hardcoded color for now
-        lower_range, upper_range = self.color_ranges["orange"]
-
-        # remove all pixels that aren't within desired color range
-        mask = cv2.inRange(hsv, lower_range, upper_range)
-
-        # limit pixel search for only pixels in center-bottom range
-        h, w, d = image.shape
-        middle_index = w // 2
-        left = middle_index - 50
-        right = middle_index + 50
-        search_top = int(3*h/4)
-        search_bot = int(3*h/4 + 20)
-        mask[0:search_top, 0:w] = 0
-        mask[search_top:h, 0:left] = 0
-        mask[search_top:h, right:w] = 0
-
-        return mask
+                    self.vel_pub.publish(self.twist)
 
 
     # perform dijkstra's algorithm from self.position to destination
@@ -276,6 +278,8 @@ class RoboCourrier(object):
         self.path_index = 0
 
         # after path is calculated, transition to pursue_obj_area state
+        print("path calculated; transitioning to pursue object area state")
+        print("path is {}".format(self.path))
         self.state = "pursue_obj_area"
         return
 
@@ -290,6 +294,7 @@ class RoboCourrier(object):
                 
                 # if robot should drive forward or back, update state accordingly
                 if action == "forward" or action == "back":
+                    print("robot driving straight!")
                     # update twist linear velocity for camera function
                     self.move_backward = action == "back"
                     if self.move_backward:
@@ -298,8 +303,9 @@ class RoboCourrier(object):
                         self.twist.linear.x = 0.1
                     self.twist.angular.z = 0
                     
-                    # TODO: make sure this calculation is correct
                     # since distances are reported in centimeters, also report speed in cm/s
+                    print("length of path is {}".format(len(self.path)))
+                    print("path index is {}".format(self.path_index))
                     next_node = self.path[self.path_index + 1]
                     dist = self.adj_matrix[self.position][next_node]
                     assert(dist != float('inf'))
@@ -321,21 +327,38 @@ class RoboCourrier(object):
                     self.vel_pub.publish(self.twist)
 
                     # check if robot has reached end of path
+                    self.path_index += 1
                     if self.path_index == len(self.path) - 1:
                         self.state = "obj_turn_left"
                     # otherwise, update robot position and continue along path
                     else:
                         # update robot position
-                        self.path_index += 1
                         self.position = self.path[self.path_index]
 
                         # transition state back to pursue_obj_area to reenter loop
                         self.state = "pursue_obj_area"
 
+                    rospy.sleep(1)
+
                 # if robot should turn left or right, do so here
                 elif action == "left" or action == "right":
-                    # TODO: write left-right turning code
-                    pass
+                    print("robot turning {}!".format(action))
+                    # update twist value
+                    self.twist.linear.x = 0
+                    if action == "left":
+                        self.twist.angular.z = 0.2
+                        self.direction = (self.direction - 90) % 360
+                    else:
+                        self.twist.angular.z = -0.2
+                        self.direction = (self.direction + 90) % 360
+
+                    # make robot turn for set amount of time, then stop
+                    self.vel_pub.publish(self.twist)
+                    rospy.sleep(8.5)
+                    self.twist.angular.z = 0
+                    self.vel_pub.publish(self.twist)
+
+                    # update robot direction
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
@@ -351,6 +374,8 @@ class RoboCourrier(object):
         # get next node in path and direction needed to get there
         next_node = self.path[self.path_index + 1]
         next_dir = self.dir_matrix[cur_node][next_node]
+        
+        print("robot direction is {}; goal direction is {}".format(cur_dir, next_dir))
 
         # compare current direction and necessary direction
         # if current and necessary direction are the same, robot should drive forward
