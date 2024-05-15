@@ -5,7 +5,6 @@ import torch
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from models.experimental import attempt_load
 from utils.general import non_max_suppression, scale_coords
 from utils.plots import plot_one_box
 
@@ -14,7 +13,7 @@ class SodaDetect:
         rospy.init_node('soda_detection')
         model_path = '/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/yolov7/runs/train/exp5/weights/best.pt'
         self.device = 'cpu'
-        self.model = attempt_load(model_path, map_location=self.device)
+        self.model = torch.load(model_path, map_location=self.device)
         self.model.to(self.device)
         self.model.eval()
 
