@@ -46,8 +46,8 @@ class SodaDetect:
         except CvBridgeError as e:
             rospy.logerr("Failed to change image to ROS message: {0}".format(e))
 
-    def prepare_image(self, cv_image, img_size=320):
-        cv_image = cv2.resize(cv_image, (img_size, img_size))
+    def prepare_image(self, cv_image, img_w = 240, img_h=320):
+        cv_image = cv2.resize(cv_image, (img_w, img_h))
         img = cv_image[:, :, ::-1].transpose(2, 0, 1)
         img = torch.from_numpy(img).float() / 255.0
         img = img.unsqueeze(0)
