@@ -10,6 +10,13 @@ from geometry_msgs.msg import Twist, Vector3
 from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty
 
+# helper function convert node names to indices
+def to_index(node_name):
+    if len(node_name) == 2:
+        return 26 + ord(node_name.lower()[1])-97
+    elif len(node_name) == 1:
+        return ord(node_name.lower())-97
+
 # HSV color ranges for tape maze
 color_ranges = {
     "orange": [np.array([0,35,204]), np.array([14,101,229])],
@@ -19,7 +26,7 @@ color_ranges = {
 # mapping of targets to nodes in map
 # TODO: supply these
 target_nodes = {
-    1: 0,
+    1: to_index("A"),
     2: None,
     3: None
 }
@@ -53,8 +60,7 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        # TODO: actually determine these values
-        self.position = 32 # should be 32 for starting node
+        self.position = to_index("AG") # should be 32/AG for starting node
         self.direction = 90
         self.path = []
         self.path_index = 0
@@ -195,28 +201,46 @@ class RoboCourrier(object):
             lower_range, upper_range = color_ranges["orange"]
 
             # remove all pixels that aren't within desired color range
-            mask = cv2.inRange(hsv, lower_range, upper_range)
+            mask_inner = cv2.inRange(hsv, lower_range, upper_range)
+            mask_full = mask_inner.copy()
 
             # limit pixel search for only pixels in center-bottom range
             h, w, d = image.shape
             middle_index = w // 2
-            left = middle_index - 100
-            right = middle_index + 100
+            left = middle_index - 50
+            right = middle_index + 50
             search_top = int(3*h/4)
             search_bot = int(3*h/4 + 20)
-            mask[0:search_top, 0:w] = 0
-            mask[search_top:h, 0:left] = 0
-            mask[search_top:h, right:w] = 0
+
+            # for mask_inner, limit search for only pixels in center bottom range
+            mask_inner[0:search_top, 0:w] = 0
+            mask_inner[search_top:h, 0:left] = 0
+            mask_inner[search_top:h, right:w] = 0
+
+            # for mask_full, limit search for only pixels in bottom range
+            mask_full[0:search_top, 0:w] = 0
 
             # use moments() function to find center of path pixels
-            M = cv2.moments(mask)
+            M_inner = cv2.moments(mask_inner)
+            M_full = cv2.moments(mask_full)
 
-            # check if there were any path pixels
-            if M['m00'] > 0:
-                print("orange pixels detected")
+            # prioritize center pixel range; otherwise search everywhere else as backup
+            cx = -1
+            cy = -1
+            # check if there were any inner-path pixels
+            if M_inner['m00'] > 0:
                 # center of detected pixels in the image
-                cx = int(M['m10']/M['m00'])
-                cy = int(M['m01']/M['m00'])
+                cx = int(M_inner['m10']/M_inner['m00'])
+                cy = int(M_inner['m01']/M_inner['m00'])
+            # check if there were any pixels at all
+            elif M_full['m00'] > 0:
+                cx = int(M_full['m10']/M_full['m00'])
+                cy = int(M_full['m01']/M_full['m00'])
+
+            # check if pixels were detected at all
+            if cx != -1:
+                # draw circle at center of pixels in debugging window
+                cv2.circle(image, (cx, cy), 20, (0,0,255),-1)
 
                 # make bot turn depending on how far away center of pixels are from center
                 e_t = (w // 2) - cx
@@ -236,6 +260,14 @@ class RoboCourrier(object):
                 # otherwise, make robot move as normal
                 else:
                     self.vel_pub.publish(self.twist)
+            # otherwise, just drive straight
+            else:
+                self.twist.angular.z = 0
+                self.vel_pub.publish(self.twist)
+
+            # show debugging window
+            #cv2.imshow("window", image)
+            #cv2.waitKey(3)
 
 
     # perform dijkstra's algorithm from self.position to destination
@@ -286,7 +318,7 @@ class RoboCourrier(object):
 
     # main thread loop, used for managing time for driving straight and turning
     def main_loop(self):
-        while True:
+        while not rospy.is_shutdown():
             # if state is pursue_obj_area, calculate target and transition state accordingly
             if self.state == "pursue_obj_area":
                 # determine next action
@@ -309,7 +341,8 @@ class RoboCourrier(object):
                     next_node = self.path[self.path_index + 1]
                     dist = self.adj_matrix[self.position][next_node]
                     assert(dist != float('inf'))
-                    time_to_wait = dist / 10
+                    time_to_wait = dist / 10 * 1.05
+                    print("distance is {}, driving for {} seconds".format(dist, time_to_wait))
 
                     # transition state to drive_straight to allow camera to process orange pixels
                     self.state = "drive_straight"
@@ -338,7 +371,8 @@ class RoboCourrier(object):
                         # transition state back to pursue_obj_area to reenter loop
                         self.state = "pursue_obj_area"
 
-                    rospy.sleep(1)
+                    # sleep briefly so bot doesn't lose distance
+                    rospy.sleep(0.5)
 
                 # if robot should turn left or right, do so here
                 elif action == "left" or action == "right":
