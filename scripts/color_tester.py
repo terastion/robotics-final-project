@@ -17,8 +17,7 @@ class RoboCourrier(object):
         # provide list of color ranges to be use/be updated
         # TODO: actually determine these values
         self.color_ranges = {
-            "orange": [np.array([0,0,0]), np.array([0,0,0])],
-            "blue": [np.array([0,0,0]), np.array([0,0,0])]
+            "orange": [np.array([0,35,204]), np.array([14,101,229])]
         }
         self.state = "await_action"
 
