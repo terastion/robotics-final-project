@@ -2,7 +2,7 @@
 import rospy
 import cv2
 import torch
-import numpy as np
+#import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from utils.general import non_max_suppression, scale_coords
@@ -15,11 +15,9 @@ class SodaDetect:
         rospy.init_node('soda_detection')
         current_directory = Path(__file__)
         parent_directory = current_directory.parent
-        file_name = 'yolov7/runs/train/exp5/weights/best.pt'
-        file_path = parent_directory / file_name
-        print(file_path)
+        print(parent_directory)
         self.device = 'cpu'
-        self.model = torch.load(model_path, map_location=self.device)
+        self.model = torch.hub.load(str(parent_directory), 'custom', 'best.pt', source= 'local' )
         self.model.to(self.device)
         self.model.eval()
 
