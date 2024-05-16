@@ -31,6 +31,10 @@ target_nodes = {
     3: None
 }
 
+dest_nodes = {
+    1: to_index("Q")
+}
+
 path_prefix = os.path.dirname(__file__) + "/"
 
 # robot action order goes:
@@ -325,20 +329,25 @@ class RoboCourrier(object):
         # after path is calculated, transition to pursue_obj_area state
         print("path calculated; transitioning to pursue object area state")
         print("path is {}".format(self.path))
-        self.state = "pursue_obj_area"
-        return
+        
+        # update state depending on whether pursuing object area or target
+        if self.state == "calculate_obj_path":
+            self.state = "pursue_obj_area"
+        elif self.state == "calculate_target_path":
+            self.state = "pursue_target"
 
 
     # main thread loop, used for managing time for driving straight and turning
     def main_loop(self):
         while not rospy.is_shutdown():
             # if state is pursue_obj_area, calculate target and transition state accordingly
-            if self.state == "pursue_obj_area":
+            if self.state == "pursue_obj_area" or self.state == "pursue_target":
                 # determine next action
                 action = self.get_next_action()
                 
                 # if robot should drive forward or back, update state accordingly
                 if action == "forward" or action == "back":
+                    previous_state = self.state
                     print("robot driving straight!")
                     # update twist linear velocity for camera function
                     self.move_backward = action == "back"
@@ -367,23 +376,30 @@ class RoboCourrier(object):
                     rospy.sleep(time_to_wait)
 
                     # stop robot
-                    self.state = "pursue_obj_area"
+                    self.state = previous_state
                     self.twist.linear.x = 0
                     self.twist.angular.z = 0
                     self.vel_pub.publish(self.twist)
 
                     # check if robot has reached end of path
                     self.path_index += 1
+                    #self.position = self.path[self.path_index]
                     if self.path_index == len(self.path) - 1:
-                        self.state = "obj_turn_left"
-                        self.pick_up_object()
+                        if self.state == "pursue_obj_area":
+                            self.state = "obj_turn_left"
+                            self.pick_up_object()
+                        elif self.state == "pursue_target":
+                            # put object down
+                            self.state = "put_obj_down"
+                            self.put_down_object()
                     # otherwise, update robot position and continue along path
                     else:
                         # update robot position
                         self.position = self.path[self.path_index]
 
-                        # transition state back to pursue_obj_area to reenter loop
-                        self.state = "pursue_obj_area"
+                        # transition state back to previous state to reenter loop
+                        #self.state = "pursue_obj_area"
+                        self.state = previous_state
 
                     # sleep briefly so bot doesn't lose distance
                     rospy.sleep(0.5)
@@ -417,7 +433,16 @@ class RoboCourrier(object):
         self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)
         rospy.sleep(2)
 
-        # TODO: navigate to target
+        # transition to calculate_target_path
+        self.state = "calculate_target_path"
+
+        # calculate path from current position to tag node
+        dest_node = dest_nodes[self.tag]
+        self.find_path(dest_node)
+
+    # put down object directly in front
+    def put_down_object(self):
+        pass
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
