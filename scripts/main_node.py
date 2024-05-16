@@ -26,7 +26,7 @@ color_ranges = {
 # mapping of targets to nodes in map
 # TODO: supply these
 target_nodes = {
-    1: to_index("A"),
+    1: to_index("B"),
     2: None,
     3: None
 }
@@ -60,8 +60,8 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        self.position = to_index("AG") # should be 32/AG for starting node
-        self.direction = 90
+        self.position = to_index("AL") # should be 32/AG for starting node
+        self.direction = 0
         self.path = []
         self.path_index = 0
         self.move_backward = False
@@ -192,6 +192,7 @@ class RoboCourrier(object):
         # TODO
         # perform action only when state is drive_straight
         if self.state == "drive_straight":
+        #if self.state == "asdfghjkl":
             # convert ROS message to cv2 and hsv
             image = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -207,10 +208,12 @@ class RoboCourrier(object):
             # limit pixel search for only pixels in center-bottom range
             h, w, d = image.shape
             middle_index = w // 2
-            left = middle_index - 50
-            right = middle_index + 50
-            search_top = int(3*h/4)
-            search_bot = int(3*h/4 + 20)
+            left = middle_index - 30
+            right = middle_index + 30
+            left_outer = middle_index - 60
+            right_outer = middle_index + 60
+            search_top = int(4*h/5)
+            #search_bot = int(3*h/4 + 20)
 
             # for mask_inner, limit search for only pixels in center bottom range
             mask_inner[0:search_top, 0:w] = 0
@@ -219,6 +222,8 @@ class RoboCourrier(object):
 
             # for mask_full, limit search for only pixels in bottom range
             mask_full[0:search_top, 0:w] = 0
+            mask_full[search_top:h, 0:left_outer] = 0
+            mask_full[search_top:h, right_outer:w] = 0
 
             # use moments() function to find center of path pixels
             M_inner = cv2.moments(mask_inner)
@@ -388,11 +393,9 @@ class RoboCourrier(object):
 
                     # make robot turn for set amount of time, then stop
                     self.vel_pub.publish(self.twist)
-                    rospy.sleep(8.5)
+                    rospy.sleep(8.52)
                     self.twist.angular.z = 0
                     self.vel_pub.publish(self.twist)
-
-                    # update robot direction
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
