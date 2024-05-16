@@ -26,7 +26,7 @@ color_ranges = {
 # mapping of targets to nodes in map
 # TODO: supply these
 target_nodes = {
-    1: to_index("B"),
+    1: to_index("C"),
     2: None,
     3: None
 }
@@ -90,10 +90,19 @@ class RoboCourrier(object):
         self.vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
         # establish interface for group of joints making up robot arm
-        #self.robot_arm = moveit_commander.MoveGroupCommander("arm")
+        self.robot_arm = moveit_commander.MoveGroupCommander("arm")
 
         # establish interface for group of joints making up robot gripper
-        #self.robot_gripper = moveit_commander.MoveGroupCommander("gripper")
+        self.robot_gripper = moveit_commander.MoveGroupCommander("gripper")
+
+        # move arm and gripper into ready position
+        self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
+
+        self.gripper_close = [-0.002, -0.002]
+        self.gripper_open = [0.019, 0.019]
+
+        self.robot_gripper.go(self.gripper_open)
+        self.robot_gripper.stop()
 
 
         ########################################################################
@@ -189,7 +198,6 @@ class RoboCourrier(object):
 
     # handler for rbpi camera
     def handle_image(self, data):
-        # TODO
         # perform action only when state is drive_straight
         if self.state == "drive_straight":
         #if self.state == "asdfghjkl":
@@ -368,6 +376,7 @@ class RoboCourrier(object):
                     self.path_index += 1
                     if self.path_index == len(self.path) - 1:
                         self.state = "obj_turn_left"
+                        self.pick_up_object()
                     # otherwise, update robot position and continue along path
                     else:
                         # update robot position
@@ -396,6 +405,19 @@ class RoboCourrier(object):
                     rospy.sleep(8.52)
                     self.twist.angular.z = 0
                     self.vel_pub.publish(self.twist)
+
+
+    # pick up an object directly in front of robot
+    def pick_up_object(self):
+        # close gripper after stopping to grab object
+        self.robot_gripper.go(self.gripper_close)
+        self.robot_gripper.stop()
+
+        # raise arm after picking up object
+        self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)
+        rospy.sleep(2)
+
+        # TODO: navigate to target
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
