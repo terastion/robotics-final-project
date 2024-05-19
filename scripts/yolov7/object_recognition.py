@@ -28,7 +28,7 @@ class SodaDetect:
         self.model.load_state_dict(torch.load(str(best_file)), strict=False)
         self.model.eval()
 
-        self.labels = ["7up", "Coke", "Pepsi", "Sprite", "Big", "Est", "Fanta"]
+        self.labels = ["Coke", "Pepsi", "Sprite"]
         self.bridge = cv_bridge.CvBridge()
         self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.image_callback)
         self.image_pub = rospy.Publisher('/detection_image', Image, queue_size=10)
