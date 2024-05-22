@@ -15,7 +15,7 @@ transform = transforms.Compose([
 data_dir = '/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/scripts/turtlebot_images'
 dataset = datasets.ImageFolder(data_dir, transform=transform)
 
-train_size = int(0.8 * len(dataset))
+train_size = int(0.7 * len(dataset))
 val_size = len(dataset) - train_size
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
@@ -30,9 +30,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.SGD(model.parameters(), lr=0.3, momentum=0.9)
 
-num_epochs = 20
+num_epochs = 50
 
 for epoch in range(num_epochs):
     model.train()
