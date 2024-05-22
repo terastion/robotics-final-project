@@ -23,8 +23,8 @@ color_ranges = {
     "blue": [np.array([0,0,0]), np.array([0,0,0])]
 }
 
-# mapping of targets to nodes in map
-target_nodes = {
+# mapping of object nodes in map
+object_nodes = {
     1: to_index("A"),
     2: to_index("B"),
     3: to_index("C")
@@ -48,7 +48,6 @@ path_prefix = os.path.dirname(__file__) + "/"
 # init_process_image (make camera send image to node)
 # process_image (await image result from node)
 ###########################################
-# grab_obj (grab object)
 # calculate_target_path (perform A* from robot's current position to desired target)
 # pursue_target (follow calculated path to target)
 # drop_obj (place object down at target)
@@ -65,12 +64,12 @@ class RoboCourrier(object):
         self.direction = 0
         self.path = []
         self.path_index = 0
-        self.object_target = {
+        self.object_mapping = {
             1: None,
             2: None,
             3: None
         }
-        self.target_index = 1
+        self.object_index = 1
         self.move_backward = False
         self.state = "await_action"
         self.twist = Twist()
@@ -193,8 +192,16 @@ class RoboCourrier(object):
             # transition robot to next state and calculate object path
             self.state = "calculate_obj_path"
             print("transitioning to calculate object path state and calculating path")
-            target_node = target_nodes[self.target_index]
-            self.find_path(target_node)
+
+            # try and see if any of the nodes have been visited and have desired object
+            # if not, visit first node at index
+            object_node = object_nodes[self.object_index]
+            for i in object_nodes:
+                if object_nodes[i] == data.obj:
+                    object_node = object_nodes[i]
+                    break
+
+            self.find_path(object_node)
 
 
     # handler for range updater
@@ -218,24 +225,27 @@ class RoboCourrier(object):
 
         # otherwise, make robot approach next target node and navigate
         else:
-            self.target_index += 1
-            # error if the target wasn't found at any node
-            if self.target_index > 3:
+            # update object mapping for current object index, then increment index
+            self.object_mapping[self.object_index] = output
+            self.object_index += 1
+
+            # error if the target wasn't found at the last node
+            if self.object_index > 3:
                 print("WARNING! Target not found anywhere!")
                 self.state = "error"
+
             # otherwise, navigate to the next node
             else:
                 # update state to calculate_obj_path and calculate path
                 self.state = "calculate_obj_path"
-                target_node = target_nodes[self.target_index]
-                self.find_path(target_node)
+                object_node = object_nodes[self.object_index]
+                self.find_path(object_node)
 
 
     # handler for rbpi camera
     def handle_image(self, data):
         # perform action only when state is drive_straight
         if self.state == "drive_straight":
-        #if self.state == "asdfghjkl":
             # convert ROS message to cv2 and hsv
             image = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
             hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -476,6 +486,8 @@ class RoboCourrier(object):
 
     # pick up an object directly in front of robot
     def pick_up_object(self):
+        # TODO: reimplement this for soda bottles
+
         # close gripper after stopping to grab object
         self.robot_gripper.go(self.gripper_close)
         self.robot_gripper.stop()
@@ -497,7 +509,12 @@ class RoboCourrier(object):
         # TODO: implement this
 
         # transition state back to await_action
+        # and reset object_index
         self.state = "await_action"
+        self.object_index = 1
+
+        # notify action manager to receive next action
+        self.state_pub.publish(Empty())
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
