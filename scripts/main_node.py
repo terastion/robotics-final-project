@@ -48,7 +48,6 @@ path_prefix = os.path.dirname(__file__) + "/"
 # init_process_image (make camera send image to node)
 # process_image (await image result from node)
 ###########################################
-# grab_obj (grab object)
 # calculate_target_path (perform A* from robot's current position to desired target)
 # pursue_target (follow calculated path to target)
 # drop_obj (place object down at target)
@@ -487,6 +486,8 @@ class RoboCourrier(object):
 
     # pick up an object directly in front of robot
     def pick_up_object(self):
+        # TODO: reimplement this for soda bottles
+
         # close gripper after stopping to grab object
         self.robot_gripper.go(self.gripper_close)
         self.robot_gripper.stop()
@@ -511,6 +512,9 @@ class RoboCourrier(object):
         # and reset object_index
         self.state = "await_action"
         self.object_index = 1
+
+        # notify action manager to receive next action
+        self.state_pub.publish(Empty())
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
