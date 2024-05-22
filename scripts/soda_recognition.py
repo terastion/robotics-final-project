@@ -23,7 +23,7 @@ class SodaClassifier:
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         
-        self.labels = ['Sprite', 'Pepsi', 'Coke']
+        self.labels = ['Coke', 'Pepsi', 'Sprite']
         self.class_name = None
         self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.image_callback)
         self.class_pub = rospy.Publisher('/soda_classification', String, queue_size=10)
