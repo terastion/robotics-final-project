@@ -3,6 +3,31 @@
 import rospy
 from robocourier.msg import RobotAction
 from std_msgs.msg import Empty
+from openai import OpenAI
+import json
+import record_voice
+import speak
+client = OpenAI(api_key='sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX')
+tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_drink_type",
+                    "description": "Output the drink that the user asks for, if any. It could only be one of pepsi, coke, or sprite",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "drink_type": {
+                                "type": "string",
+                                "description": "A keyword that specifies the drink type that the user wants. The keyword could only be \"pepsi\", \"coke\", or \"sprite\"",
+                            }
+                        },
+                        "required": ["drink_type"]
+                    },
+                },
+            }
+        ]
+#sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX
 
 def to_index(node_name):
     if len(node_name) == 2:
@@ -18,11 +43,11 @@ class ActionManager(object):
 
         # list of actions to take
         # may get updated with additional node for receiver
-        self.actions = [
-            {"object": "one", "tag": 1},
-            {"object": "two", "tag": 2},
-            {"object": "three", "tag": 3}
-        ]
+        self.actions = {
+            "pepsi": 1,
+            "coke": 2,
+            "sprite": 3
+        }
         self.action_idx = 0
 
         # establish /robocourier/state subscriber for receiving pings from robot
@@ -36,18 +61,51 @@ class ActionManager(object):
 
     # callback function for receiving a ping from robot
     def determine_action(self, data):
-        # check if index isn't out of range
-        if self.action_idx < 3:
-            # create action message
-            current_action = self.actions[self.action_idx]
-            msg = RobotAction(obj=current_action["object"], tag=current_action["tag"])
-            self.action_pub.publish(msg)
+        has_new_task = False
+        while has_new_task == False:
+            # check if index isn't out of range
+            record_voice.record_voice()
+            audio_file= open("output.mp3", "rb")
+            translation = client.audio.translations.create(
+                model="whisper-1", 
+                file=audio_file
+            )
+            audio_file.close()
+            user_message = translation.text
+            print(f"user_message is: {user_message}")
+            completion = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "user", "content": user_message}
+                    ],
+                    tools=tools,
+                    tool_choice="auto"
+            )
+            response_message = completion.choices[0].message
+            tool_calls = response_message.tool_calls
+            if tool_calls:
+                drink_type = json.loads(tool_calls[0].function.arguments).get("drink_type")
+                print(drink_type)
+                speak.speak_text(f"{drink_type}? Sure thing! One moment please!")
+                msg = RobotAction(obj= drink_type, tag=self.actions[drink_type])
+                self.action_pub.publish(msg)
+                has_new_task = True
+                print(f"msg with obj={drink_type} and tag={self.actions[drink_type]} published, the robot should move")
+            else:
+                print(completion.choices[0].message.content)
+                speak.speak_text(completion.choices[0].message.content)
+            """
+            if self.action_idx < 3:
+                # create action message
+                current_action = self.actions[self.action_idx]
+                msg = RobotAction(obj=current_action["object"], tag=current_action["tag"])
+                self.action_pub.publish(msg)
 
-            self.action_idx += 1
-        # otherwise, send an empty message
-        else:
-            self.action_pub.publish(RobotAction())
-
+                self.action_idx += 1
+            # otherwise, send an empty message
+            else:
+                self.action_pub.publish(RobotAction())
+            """
     def run(self):
         rospy.spin()
 
