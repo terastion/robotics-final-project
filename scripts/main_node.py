@@ -8,7 +8,7 @@ import csv
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist, Vector3
 from robocourier.msg import RangeUpdate, RobotAction
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, String
 
 # helper function convert node names to indices
 def to_index(node_name):
@@ -24,15 +24,16 @@ color_ranges = {
 }
 
 # mapping of targets to nodes in map
-# TODO: supply these
 target_nodes = {
-    1: to_index("C"),
-    2: None,
-    3: None
+    1: to_index("A"),
+    2: to_index("B"),
+    3: to_index("C")
 }
 
 dest_nodes = {
-    1: to_index("Q")
+    1: to_index("Q"),
+    2: to_index("X"),
+    3: to_index("AB")
 }
 
 path_prefix = os.path.dirname(__file__) + "/"
@@ -41,15 +42,11 @@ path_prefix = os.path.dirname(__file__) + "/"
 # await_action (waiting for robot to receive next object/target)
 # calculate_obj_path (perform A* from robot's current position to object area)
 # pursue_obj_area (follow calculated path to object area)
-## three substates:
-### wait_for_camera (have camera send first movement command; transition to drive_straight immediately after)
+# one substate:
 ### drive_straight (for either driving forward or backward)
-### turning (for turning left or right)
-# obj_turn_left (turn left for first object)
 ###########################################
-# process_obj (perform object recognition on object)
-# (skip state below if object successfully detected)
-# obj_turn_left (turn right for next object in case incorrect object detected)
+# init_process_image (make camera send image to node)
+# process_image (await image result from node)
 ###########################################
 # grab_obj (grab object)
 # calculate_target_path (perform A* from robot's current position to desired target)
@@ -68,6 +65,12 @@ class RoboCourrier(object):
         self.direction = 0
         self.path = []
         self.path_index = 0
+        self.object_target = {
+            1: None,
+            2: None,
+            3: None
+        }
+        self.target_index = 1
         self.move_backward = False
         self.state = "await_action"
         self.twist = Twist()
@@ -92,6 +95,12 @@ class RoboCourrier(object):
 
         # establish /cmd_vel publisher
         self.vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+
+        # establish /image_input publisher, for running image recognition
+        self.image_pub = rospy.Publisher("/robocourier/image_input", Image, queue_size=10)
+
+        # establish /image_output subscriber, for receiving output of image recognition
+        rospy.Subscriber("/robocourier/image_output", String, self.handle_image_output)
 
         # establish interface for group of joints making up robot arm
         self.robot_arm = moveit_commander.MoveGroupCommander("arm")
@@ -184,7 +193,7 @@ class RoboCourrier(object):
             # transition robot to next state and calculate object path
             self.state = "calculate_obj_path"
             print("transitioning to calculate object path state and calculating path")
-            target_node = target_nodes[data.tag]
+            target_node = target_nodes[self.target_index]
             self.find_path(target_node)
 
 
@@ -198,6 +207,28 @@ class RoboCourrier(object):
     def handle_scan(self, data):
         # TODO
         pass
+
+
+    # handler for image recognition output
+    def handle_image_output(self, output):
+        # check if received output is equal to desired object
+        if output == self.obj:
+            # pick up object, which makes robot pursue target afterwards
+            self.pick_up_object()
+
+        # otherwise, make robot approach next target node and navigate
+        else:
+            self.target_index += 1
+            # error if the target wasn't found at any node
+            if self.target_index > 3:
+                print("WARNING! Target not found anywhere!")
+                self.state = "error"
+            # otherwise, navigate to the next node
+            else:
+                # update state to calculate_obj_path and calculate path
+                self.state = "calculate_obj_path"
+                target_node = target_nodes[self.target_index]
+                self.find_path(target_node)
 
 
     # handler for rbpi camera
@@ -285,6 +316,14 @@ class RoboCourrier(object):
             # show debugging window
             #cv2.imshow("window", image)
             #cv2.waitKey(3)
+
+        # if robot is in init_process_image state, send image to image recognition node
+        elif self.state == "init_process_image":
+            # transition state to process_image to prevent further processing
+            self.state = "process_image"
+            
+            # publish image to image recognition node
+            self.image_pub.publish(data)
 
 
     # perform dijkstra's algorithm from self.position to destination
@@ -381,24 +420,28 @@ class RoboCourrier(object):
                     self.twist.angular.z = 0
                     self.vel_pub.publish(self.twist)
 
-                    # check if robot has reached end of path
+                    # update robot position 
                     self.path_index += 1
-                    #self.position = self.path[self.path_index]
+                    self.position = self.path[self.path_index]
+
+                    # check if robot has reached end of path
                     if self.path_index == len(self.path) - 1:
+                        # if it has, turn robot left if pursuing object area
                         if self.state == "pursue_obj_area":
-                            self.state = "obj_turn_left"
-                            self.pick_up_object()
+                            # transition to scan for object state
+                            self.state = "init_process_image"
+                            
+                        # otherwise, turn the robot towards target and put down
                         elif self.state == "pursue_target":
+                            # TODO: turn robot towards target
+
                             # put object down
                             self.state = "put_obj_down"
                             self.put_down_object()
-                    # otherwise, update robot position and continue along path
-                    else:
-                        # update robot position
-                        self.position = self.path[self.path_index]
 
+                    # otherwise, continue along path
+                    else:
                         # transition state back to previous state to reenter loop
-                        #self.state = "pursue_obj_area"
                         self.state = previous_state
 
                     # sleep briefly so bot doesn't lose distance
@@ -407,20 +450,28 @@ class RoboCourrier(object):
                 # if robot should turn left or right, do so here
                 elif action == "left" or action == "right":
                     print("robot turning {}!".format(action))
-                    # update twist value
-                    self.twist.linear.x = 0
-                    if action == "left":
-                        self.twist.angular.z = 0.2
-                        self.direction = (self.direction - 90) % 360
-                    else:
-                        self.twist.angular.z = -0.2
-                        self.direction = (self.direction + 90) % 360
+                    self.turn_robot(action)
 
-                    # make robot turn for set amount of time, then stop
-                    self.vel_pub.publish(self.twist)
-                    rospy.sleep(8.52)
-                    self.twist.angular.z = 0
-                    self.vel_pub.publish(self.twist)
+        # make robot stop after loop terminates from ctrl+C
+        self.vel_pub.publish(Twist())
+
+
+    # turn robot 90 degrees to left or right
+    def turn_robot(self, direction):
+        # update twist value
+        self.twist.linear.x = 0
+        if direction == "left":
+            self.twist.angular.z = 0.2
+            self.direction = (self.direction - 90) % 360
+        else:
+            self.twist.angular.z = -0.2
+            self.direction = (self.direction + 90) % 360
+
+        # make robot turn for set amount of time, then stop
+        self.vel_pub.publish(self.twist)
+        rospy.sleep(8.52)
+        self.twist.angular.z = 0
+        self.vel_pub.publish(self.twist)
 
 
     # pick up an object directly in front of robot
@@ -433,16 +484,20 @@ class RoboCourrier(object):
         self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)
         rospy.sleep(2)
 
-        # transition to calculate_target_path
+        # transition to calculate_target_path after grabbing robot
         self.state = "calculate_target_path"
 
         # calculate path from current position to tag node
         dest_node = dest_nodes[self.tag]
         self.find_path(dest_node)
 
+
     # put down object directly in front
     def put_down_object(self):
-        pass
+        # TODO: implement this
+
+        # transition state back to await_action
+        self.state = "await_action"
 
 
     # using current position+rotation, determine whether bot should drive straight (forward or back)
