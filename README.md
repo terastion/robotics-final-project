@@ -1,4 +1,4 @@
-# robotics-final-project: RoboCourier
+# RoboCourier
 
 ## Project Description
 
@@ -12,22 +12,22 @@ Our team is passionate about automating routine tasks through robotics, and we a
 RoboCourier is designed to navigate through an environment, identify delivery locations, pick up soda bottles, and deliver them to specified destinations using a combination of sensors and algorithms.
 
 **Main Components:**
-- **Navigation:** Utilizing SLAM (Simultaneous Localization and Mapping) for environment mapping and path planning.
+- **Navigation:** Using a hard-coded maze based on measurements of each node in the environment. Pathfinding is implemented using both the A* and Dijkstra's algorithms to determine the shortest path.
 - **Object Detection:** Implementing computer vision techniques for identifying soda bottles and delivery points.
 - **Manipulation:** Using robotic arms for picking up and placing soda bottles.
 
 ## System Architecture
 
 **Navigation:**
-- **SLAM Algorithm:** The robot uses the SLAM algorithm to create a map of its environment and plan the optimal path to the delivery location.
-- **Path Planning:** The navigation system calculates the best route considering obstacles and dynamic changes in the environment.
+- **Hard-coded Maze:** The robot uses a hard-coded maze based on measurements of each node in the environment. The maze data is stored in `adjacency.csv` under the `script` folder.
+- **Path Planning:** Implemented using both A* and Dijkstra's algorithms to find the shortest path in the maze.
 
 **Object Detection:**
-- **Computer Vision:** The robot employs a camera and image processing algorithms to detect and recognize items and delivery points.
-- **Sensor Integration:** Data from various sensors, including LIDAR and ultrasonic sensors, are used to enhance detection accuracy.
+- **Computer Vision:** The robot employs a camera and image processing algorithms to detect and recognize soda bottles and delivery points.
+- **Sensor Integration:** Data from various sensors are used to enhance detection accuracy.
 
 **Manipulation:**
-- **Robotic Arm Control:** The robot’s arm is controlled using inverse kinematics to pick up and place items accurately.
+- **Robotic Arm Control:** The robot’s arm is controlled using inverse kinematics to pick up and place soda bottles accurately.
 - **Gripper Mechanism:** A custom-designed gripper is used to handle different objects securely.
 
 **Flowchart:**
