@@ -7,9 +7,9 @@
 ## ROS Node Diagram
 
 ## Execution
-- Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = '<YOUR_API_KEY_HERE>'` within both `main_node.py` and `action_manager.py`.
+Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = '<YOUR_API_KEY_HERE>'` within both `main_node.py` and `action_manager.py`.
 
-- Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute path in your environment
+Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute path in your environment
   
 `roscore`
 
