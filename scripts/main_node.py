@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+code #!/usr/bin/env python3
 import json
 import rospy, cv2, cv_bridge, moveit_commander
 import numpy as np
@@ -12,7 +12,7 @@ from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty, String
 import speak
 import record_voice
-client = OpenAI(api_key='.')
+#client = 
 tools = [
             {
                 "type": "function",
@@ -83,7 +83,7 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        self.position = to_index("AL") # should be 32/AG for starting node
+        self.position = to_index("V") # should be 32/AG for starting node
         self.direction = 0
         self.path = []
         self.path_index = 0
@@ -93,6 +93,7 @@ class RoboCourrier(object):
             3: None
         }
         self.object_index = 1
+        self.last_motion = None
         self.move_backward = False
         self.state = "await_action"
         self.twist = Twist()
@@ -133,7 +134,7 @@ class RoboCourrier(object):
         # move arm and gripper into ready position
         self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
 
-        self.gripper_close = [0.009, 0.009]
+        self.gripper_close = [0.005, 0.005]
         self.gripper_open = [0.019, 0.019]
 
         self.robot_gripper.go(self.gripper_open)
@@ -198,6 +199,10 @@ class RoboCourrier(object):
             self.adj_matrix.append(adj_row)
             self.dir_matrix.append(dir_row)
 
+        # manual overrides
+        self.adj_matrix[to_index("N")][to_index("O")] += 15
+        self.adj_matrix[to_index("O")][to_index("N")] += 15
+
 
     # handler for action manager
     def handle_action(self, data):
@@ -209,8 +214,8 @@ class RoboCourrier(object):
             self.tag = -1
         # otherwise, update robot's goals and begin journey to object area
         else:
-            self.obj = data.obj
-            self.tag = data.tag
+            self.obj = str(data.obj)
+            self.tag = int(data.tag)
             
             # transition robot to next state and calculate object path
             self.state = "calculate_obj_path"
@@ -241,13 +246,18 @@ class RoboCourrier(object):
 
     # handler for image recognition output
     def handle_image_output(self, output):
+        output = output.data
+        print("soda detected in image is {}".format(output))
+        print("desired soda is {}".format(self.obj))
         # check if received output is equal to desired object
         if output == self.obj:
+            print("objects are the same!")
             # pick up object, which makes robot pursue target afterwards
             self.pick_up_object()
 
         # otherwise, make robot approach next target node and navigate
         else:
+            print("objects are not the same!")
             # update object mapping for current object index, then increment index
             self.object_mapping[self.object_index] = output
             self.object_index += 1
@@ -268,6 +278,7 @@ class RoboCourrier(object):
     # handler for rbpi camera
     def handle_image(self, data):
         # perform action only when state is drive_straight
+        #if self.state == "asdfjhalksdjgh":
         if self.state == "drive_straight":
             # convert ROS message to cv2 and hsv
             image = self.bridge.imgmsg_to_cv2(data, desired_encoding='bgr8')
@@ -347,8 +358,8 @@ class RoboCourrier(object):
                 self.vel_pub.publish(self.twist)
 
             # show debugging window
-            cv2.imshow("window", image)
-            cv2.waitKey(3)
+            #cv2.imshow("window", image)
+            #cv2.waitKey(3)
 
         # if robot is in init_process_image state, send image to image recognition node
         elif self.state == "init_process_image":
@@ -420,6 +431,7 @@ class RoboCourrier(object):
                 # if robot should drive forward or back, update state accordingly
                 if action == "forward" or action == "back":
                     previous_state = self.state
+                    self.last_motion = action
                     print("robot driving straight!")
                     # update twist linear velocity for camera function
                     self.move_backward = action == "back"
@@ -435,7 +447,8 @@ class RoboCourrier(object):
                     next_node = self.path[self.path_index + 1]
                     dist = self.adj_matrix[self.position][next_node]
                     assert(dist != float('inf'))
-                    time_to_wait = dist / 10 * 1.05
+                    #time_to_wait = dist / 10 * 1.05
+                    time_to_wait = dist / 10
                     print("distance is {}, driving for {} seconds".format(dist, time_to_wait))
 
                     # transition state to drive_straight to allow camera to process orange pixels
@@ -463,6 +476,7 @@ class RoboCourrier(object):
                         if self.state == "pursue_obj_area":
                             # transition to scan for object state
                             self.state = "init_process_image"
+                            #pass
                             #self.pick_up_object()
                         # otherwise, turn the robot towards target and put down
                         elif self.state == "pursue_target":
@@ -491,6 +505,13 @@ class RoboCourrier(object):
 
     # turn robot 90 degrees to left or right
     def turn_robot(self, direction):
+        # make robot drive either forwards or backwards slightly
+        self.twist.linear.x = 0.05
+        self.twist.angular.z = 0
+        self.vel_pub.publish(self.twist)
+        rospy.sleep(0.5)
+        self.vel_pub.publish(Twist())
+
         # update twist value
         self.twist.linear.x = 0
         if direction == "left":
@@ -570,7 +591,7 @@ class RoboCourrier(object):
     def put_down_object(self):
         # TODO: implement this
         self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
-        rospy.sleep(5)
+        rospy.sleep(8)
         self.robot_gripper.go(self.gripper_open)
         self.robot_gripper.stop()
         rospy.sleep(1)

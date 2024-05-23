@@ -7,7 +7,7 @@ from openai import OpenAI
 import json
 import record_voice
 import speak
-client = OpenAI(api_key='.')
+#client = 
 tools = [
             {
                 "type": "function",
