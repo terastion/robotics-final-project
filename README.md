@@ -31,7 +31,7 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 - **Gripper Mechanism:** A custom-designed gripper is used to handle different objects securely.
 
 **Flowchart:**
-![Flowchart](robotics-final-project/Flowchart.png)
+![Flowchart](Flowchart.png)
 
 ## ROS Node Diagram for RoboCourier
 
