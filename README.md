@@ -30,6 +30,9 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 - **Robotic Arm Control:** The robot’s arm is controlled using inverse kinematics to pick up and place items accurately.
 - **Gripper Mechanism:** A custom-designed gripper is used to handle different objects securely.
 
+**Flowchart:**
+![Flowchart](robotics-final-project/Flowchart.png)
+
 ## ROS Node Diagram for RoboCourier
 
 1. **Nodes:**
