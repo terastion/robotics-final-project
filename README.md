@@ -5,16 +5,16 @@
 **Goal:**
 The goal of RoboCourier is to develop an autonomous robot capable of delivering items within a predefined environment. This project explores the integration of robotics algorithms for navigation, object detection, and manipulation to achieve efficient and reliable item delivery.
 
-**Interest:**
-Our interest in this project stems from the potential applications in logistics and automation, where autonomous robots can significantly enhance efficiency and reduce human effort in repetitive tasks.
+**Motivation:**
+Our team is passionate about automating routine tasks through robotics, and we are eager to explore how robotics can be integrated into everyday environments. The RoboCourier project aims to streamline the management and distribution of soda bottles, thereby reducing mundane tasks and increasing efficiency. This project will not only allow us to delve into complex robotics algorithms, such as pathfinding and localization, but also challenge us to integrate advanced computer vision technologies, enhancing both our learning and technical skills.
 
 **Robot Functionality:**
-RoboCourier is designed to navigate through an environment, identify delivery locations, pick up items, and deliver them to specified destinations using a combination of sensors and algorithms.
+RoboCourier is designed to navigate through an environment, identify delivery locations, pick up soda bottles, and deliver them to specified destinations using a combination of sensors and algorithms.
 
 **Main Components:**
 - **Navigation:** Utilizing SLAM (Simultaneous Localization and Mapping) for environment mapping and path planning.
-- **Object Detection:** Implementing computer vision techniques for identifying items and delivery points.
-- **Manipulation:** Using robotic arms for picking up and placing items.
+- **Object Detection:** Implementing computer vision techniques for identifying soda bottles and delivery points.
+- **Manipulation:** Using robotic arms for picking up and placing soda bottles.
 
 ## System Architecture
 
