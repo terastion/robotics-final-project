@@ -7,7 +7,7 @@ from openai import OpenAI
 import json
 import record_voice
 import speak
-client = OpenAI(api_key='sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX')
+client = OpenAI(api_key='.')
 tools = [
             {
                 "type": "function",
@@ -65,7 +65,7 @@ class ActionManager(object):
         has_new_task = False
         print("How's it going? Wanna drink? Or what?")
         speak.speak_text("How's it going? Wanna drink? Or what?")
-        while has_new_task == False:
+        while has_new_task == False and not rospy.is_shutdown():
             # check if index isn't out of range
             
             record_voice.record_voice()

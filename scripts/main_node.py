@@ -12,7 +12,7 @@ from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty, String
 import speak
 import record_voice
-client = OpenAI(api_key='sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX')
+client = OpenAI(api_key='.')
 tools = [
             {
                 "type": "function",
@@ -83,7 +83,7 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        self.position = to_index("K") # should be 32/AG for starting node
+        self.position = to_index("AL") # should be 32/AG for starting node
         self.direction = 0
         self.path = []
         self.path_index = 0
@@ -133,7 +133,7 @@ class RoboCourrier(object):
         # move arm and gripper into ready position
         self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
 
-        self.gripper_close = [-0.002, -0.002]
+        self.gripper_close = [0.009, 0.009]
         self.gripper_open = [0.019, 0.019]
 
         self.robot_gripper.go(self.gripper_open)
@@ -462,8 +462,8 @@ class RoboCourrier(object):
                         # if it has, turn robot left if pursuing object area
                         if self.state == "pursue_obj_area":
                             # transition to scan for object state
-                            #self.state = "init_process_image"
-                            self.pick_up_object()
+                            self.state = "init_process_image"
+                            #self.pick_up_object()
                         # otherwise, turn the robot towards target and put down
                         elif self.state == "pursue_target":
                             # TODO: turn robot towards target
@@ -512,8 +512,12 @@ class RoboCourrier(object):
         # TODO: reimplement this for soda bottles
 
         # close gripper after stopping to grab object
+        self.robot_arm.go([math.radians(0), math.radians(43), math.radians(3), math.radians(-45)], wait=True)
+        rospy.sleep(4)
+        
         self.robot_gripper.go(self.gripper_close)
         self.robot_gripper.stop()
+        rospy.sleep(1)
 
         # raise arm after picking up object
         self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)

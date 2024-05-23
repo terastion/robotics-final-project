@@ -12,6 +12,8 @@ from PIL import Image as PILImage
 import os
 import cv2
 
+path_prefix = os.path.dirname(__file__) + "/"
+
 class SodaClassifier:
     def __init__(self):
         self.bridge = CvBridge()
@@ -23,7 +25,7 @@ class SodaClassifier:
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
         
-        self.labels = ['Coke', 'Pepsi', 'Sprite']
+        self.labels = ['coke', 'pepsi', 'sprite']
         self.class_name = None
         self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.image_callback)
         self.class_pub = rospy.Publisher('/soda_classification', String, queue_size=10)
@@ -34,7 +36,10 @@ class SodaClassifier:
         model = resnet18(pretrained = True)
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 3)  
-        model.load_state_dict(torch.load('/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/scripts/soda_classifier.pt'))
+        model_file = path_prefix + "soda_classifier.pt"
+        print(model_file)
+        #model.load_state_dict(torch.load('/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/scripts/soda_classifier.pt'))
+        model.load_state_dict(torch.load(model_file), map_location=torch.device('cpu'))
         model.eval()
         return model
         
