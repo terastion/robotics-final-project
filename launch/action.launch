@@ -4,4 +4,6 @@
 
     <!-- run robocourier node -->
     <node name="robocourier" pkg="robocourier" type="main_node.py" output="screen" />
+    <!-- run soda_classifier node -->
+    <node name="soda_classifier" pkg="robocourier" type="soda_recognition.py" output="screen" />
 </launch>
