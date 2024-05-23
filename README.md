@@ -35,13 +35,7 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 
 ## Demo Video
 
-[Click here to watch the demo video](robocourier_demo.mp4)
-
-
-
 https://github.com/terastion/robotics-final-project/assets/46730580/f7a956f5-2fd2-4b56-a28f-ef5be80ba267
-
-
 
 ## ROS Node Diagram for RoboCourier
 
