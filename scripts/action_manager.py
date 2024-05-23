@@ -27,6 +27,7 @@ tools = [
                 },
             }
         ]
+messages = [{"role": "system", "content": "you are super hilarious, but keep your response short and concise!! Make jokes all the time(except when function calling, where you have to be precise).You start introducing yourself as Robo Courrier, who is the fastest drink delievery robot. You ask the user what's their name, and then start interacting with the users. Pay close attention to what drinks they want and invoke function calling appropriately."}]
 #sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX
 
 def to_index(node_name):
@@ -62,8 +63,11 @@ class ActionManager(object):
     # callback function for receiving a ping from robot
     def determine_action(self, data):
         has_new_task = False
+        print("How's it going? Wanna drink? Or what?")
+        speak.speak_text("How's it going? Wanna drink? Or what?")
         while has_new_task == False:
             # check if index isn't out of range
+            
             record_voice.record_voice()
             audio_file= open("output.mp3", "rb")
             translation = client.audio.translations.create(
@@ -72,12 +76,11 @@ class ActionManager(object):
             )
             audio_file.close()
             user_message = translation.text
+            messages.append({"role": "user", "content": user_message})
             print(f"user_message is: {user_message}")
             completion = client.chat.completions.create(
                     model="gpt-4o",
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ],
+                    messages=messages,
                     tools=tools,
                     tool_choice="auto"
             )
@@ -87,12 +90,14 @@ class ActionManager(object):
                 drink_type = json.loads(tool_calls[0].function.arguments).get("drink_type")
                 print(drink_type)
                 speak.speak_text(f"{drink_type}? Sure thing! One moment please!")
+                messages.append({"role":"assistant","content": f"{drink_type}? Sure thing! One moment please!"})
                 msg = RobotAction(obj= drink_type, tag=self.actions[drink_type])
                 self.action_pub.publish(msg)
                 has_new_task = True
                 print(f"msg with obj={drink_type} and tag={self.actions[drink_type]} published, the robot should move")
             else:
                 print(completion.choices[0].message.content)
+                messages.append({"role":"assistant", "content":completion.choices[0].message.content})
                 speak.speak_text(completion.choices[0].message.content)
             """
             if self.action_idx < 3:

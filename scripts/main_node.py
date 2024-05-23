@@ -1,14 +1,37 @@
 #!/usr/bin/env python3
-
+import json
 import rospy, cv2, cv_bridge, moveit_commander
 import numpy as np
 import math
 import os
+from openai import OpenAI
 import csv
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist, Vector3
 from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty, String
+import speak
+import record_voice
+client = OpenAI(api_key='sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX')
+tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_destination_node",
+                    "description": "Output the destination node that the user specifies. It could only be one of the following nodes: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "destination_node": {
+                                "type": "string",
+                                "description": "Return only the string representation of a node. The function could ONLY output one of the following nodes: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM. For example, if the user specifies the destination node to be \"AF\", output only the string \"AF\"",
+                            }
+                        },
+                        "required": ["destination_node"]
+                    },
+                },
+            }
+        ]
 
 # helper function convert node names to indices
 def to_index(node_name):
@@ -60,7 +83,7 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        self.position = to_index("AL") # should be 32/AG for starting node
+        self.position = to_index("K") # should be 32/AG for starting node
         self.direction = 0
         self.path = []
         self.path_index = 0
@@ -324,8 +347,8 @@ class RoboCourrier(object):
                 self.vel_pub.publish(self.twist)
 
             # show debugging window
-            #cv2.imshow("window", image)
-            #cv2.waitKey(3)
+            cv2.imshow("window", image)
+            cv2.waitKey(3)
 
         # if robot is in init_process_image state, send image to image recognition node
         elif self.state == "init_process_image":
@@ -439,8 +462,8 @@ class RoboCourrier(object):
                         # if it has, turn robot left if pursuing object area
                         if self.state == "pursue_obj_area":
                             # transition to scan for object state
-                            self.state = "init_process_image"
-                            
+                            #self.state = "init_process_image"
+                            self.pick_up_object()
                         # otherwise, turn the robot towards target and put down
                         elif self.state == "pursue_target":
                             # TODO: turn robot towards target
@@ -496,18 +519,57 @@ class RoboCourrier(object):
         self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)
         rospy.sleep(2)
 
-        # transition to calculate_target_path after grabbing robot
-        self.state = "calculate_target_path"
+        arrive_ack = "I have picked up the drink! Where do you want me to go?"
+        speak.speak_text(arrive_ack)
+        print(arrive_ack)
+        has_destination = False
+        while has_destination == False and not rospy.is_shutdown():
+            # check if index isn't out of range
+            record_voice.record_voice()
+            audio_file= open("output.mp3", "rb")
+            translation = client.audio.translations.create(
+                model="whisper-1",
+                file=audio_file
+            )
+            audio_file.close()
+            user_message = translation.text
+            print(f"user_message is: {user_message}")
+            completion = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are asking which destination node the user wants you to go. Pay close attention if the user specifies a destination node within the range A-Z and AA-AM. Also, just be a funny AI that can amuse the user."},
+                        {"role": "user", "content": user_message}
+                    ],
+                    tools=tools,
+                    tool_choice="auto"
+            )
+            response_message = completion.choices[0].message
+            tool_calls = response_message.tool_calls
+            if tool_calls:
+                # transition to calculate_target_path after grabbing robot
+                dest_node = json.loads(tool_calls[0].function.arguments).get("destination_node")
+                print(f"{dest_node}, the destination is {dest_node}! Here I come!")
+                speak.speak_text(f"{dest_node}, the destination is {dest_node}! Here I come!")
+                #calculate path from current position to tag node
+                speak.speak_text("calculating the quickest path to your place")
+                print("calculating the quickest path to your place")
+                self.state = "calculate_target_path"
+                self.find_path(to_index(dest_node))
+                has_destination = True
+            else:
+                print(completion.choices[0].message.content)
+                speak.speak_text(completion.choices[0].message.content)
 
-        # calculate path from current position to tag node
-        dest_node = dest_nodes[self.tag]
-        self.find_path(dest_node)
 
 
     # put down object directly in front
     def put_down_object(self):
         # TODO: implement this
-
+        self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
+        rospy.sleep(5)
+        self.robot_gripper.go(self.gripper_open)
+        self.robot_gripper.stop()
+        rospy.sleep(1)
         # transition state back to await_action
         # and reset object_index
         self.state = "await_action"
