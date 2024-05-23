@@ -7,14 +7,16 @@
 ## ROS Node Diagram
 
 ## Execution
-0.1) Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = '<YOUR_API_KEY_HERE>'` within both `main_node.py` and `action_manager.py`.
-0.2) Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute path in your environment
-1) `roscore`
-2) `ssh pi@<YOUR_TURTLEBOT_IP>` and `bringup`
-3) `ssh pi@<YOUR_TURTLEBOT_IP>` and `bringup_cam`
-4) `roslaunch turtlebot3_manipulation_bringup turtlebot3_manipulation_bringup.launch`
-5) `roslaunch turtlebot3_manipulation_moveit_config move_group.launch`
-6) `roslaunch robocourier action.launch`
-7) If you encounter any troubles, it is likely due to missing libraries. Use  `pip instal XXX` command to install necessary libraries.
+- Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = '<YOUR_API_KEY_HERE>'` within both `main_node.py` and `action_manager.py`.
+
+- Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute path in your environment
+`roscore`
+`ssh pi@<YOUR_TURTLEBOT_IP>` and `bringup`
+`ssh pi@<YOUR_TURTLEBOT_IP>` and `bringup_cam`
+`roslaunch turtlebot3_manipulation_bringup turtlebot3_manipulation_bringup.launch`
+`roslaunch turtlebot3_manipulation_moveit_config move_group.launch`
+`roslaunch robocourier action.launch`
+
+- If you encounter any troubles, it is likely due to missing libraries. Use  `pip instal XXX` command to install necessary libraries.
 
 ## Challenges, Future Work, and Takeaways
