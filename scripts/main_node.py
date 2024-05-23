@@ -1,4 +1,4 @@
-code #!/usr/bin/env python3
+#!/usr/bin/env python3
 import json
 import rospy, cv2, cv_bridge, moveit_commander
 import numpy as np
@@ -12,7 +12,8 @@ from robocourier.msg import RangeUpdate, RobotAction
 from std_msgs.msg import Empty, String
 import speak
 import record_voice
-#client = 
+import play_music
+client = OpenAI(api_key = "<API-KEY>")
 tools = [
             {
                 "type": "function",
@@ -419,6 +420,7 @@ class RoboCourrier(object):
         elif self.state == "calculate_target_path":
             self.state = "pursue_target"
 
+        play_music.play()
 
     # main thread loop, used for managing time for driving straight and turning
     def main_loop(self):
@@ -543,7 +545,7 @@ class RoboCourrier(object):
         # raise arm after picking up object
         self.robot_arm.go([math.radians(0), math.radians(-80), math.radians(38), math.radians(-52)], wait=True)
         rospy.sleep(2)
-
+        play_music.stop()
         arrive_ack = "I have picked up the drink! Where do you want me to go?"
         speak.speak_text(arrive_ack)
         print(arrive_ack)
@@ -589,6 +591,8 @@ class RoboCourrier(object):
 
     # put down object directly in front
     def put_down_object(self):
+        play_music.stop()
+        speak.speak_text("Here you go!")
         # TODO: implement this
         self.robot_arm.go([math.radians(0), math.radians(6), math.radians(38), math.radians(-52)], wait=True)
         rospy.sleep(8)

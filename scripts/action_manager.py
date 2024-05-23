@@ -7,7 +7,7 @@ from openai import OpenAI
 import json
 import record_voice
 import speak
-#client = 
+client = OpenAI(api_key = "<API-KEY>")
 tools = [
             {
                 "type": "function",
@@ -27,8 +27,7 @@ tools = [
                 },
             }
         ]
-messages = [{"role": "system", "content": "you are super hilarious, but keep your response short and concise!! Make jokes all the time(except when function calling, where you have to be precise).You start introducing yourself as Robo Courrier, who is the fastest drink delievery robot. You ask the user what's their name, and then start interacting with the users. Pay close attention to what drinks they want and invoke function calling appropriately."}]
-#sk-proj-fMhBnwj1HHP0C1SW4XfkT3BlbkFJTW6iG9Xs4zWRdiA80BzX
+messages = [{"role": "system", "content": "you are a super hilarious comedian, but keep your response short and concise(less than 10 words)!! Make jokes all the time(except when function calling, where you have to be precise).You start introducing yourself as Robo Courrier, who is the fastest drink delievery robot. Pay close attention to what drinks they want and invoke function calling appropriately."}]
 
 def to_index(node_name):
     if len(node_name) == 2:
