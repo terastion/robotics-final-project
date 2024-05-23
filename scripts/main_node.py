@@ -13,8 +13,12 @@ from std_msgs.msg import Empty, String
 import speak
 import record_voice
 import play_music
+<<<<<<< HEAD
 
 # Removed api key to push
+=======
+client = OpenAI(api_key = "API key")
+>>>>>>> 1f9da4fa... committing
 tools = [
             {
                 "type": "function",
