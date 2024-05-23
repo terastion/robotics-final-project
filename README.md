@@ -17,6 +17,6 @@
 `roslaunch turtlebot3_manipulation_moveit_config move_group.launch`
 `roslaunch robocourier action.launch`
 
-- If you encounter any troubles, it is likely due to missing libraries. Use  `pip instal XXX` command to install necessary libraries.
+> **Note:** If you encounter any troubles, it is likely due to missing libraries. Use  `pip instal XXX` command to install necessary libraries.
 
 ## Challenges, Future Work, and Takeaways
