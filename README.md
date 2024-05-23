@@ -1,4 +1,4 @@
-# RoboCourier
+# Final-Project: RoboCourier
 
 ## Project Description
 
@@ -13,7 +13,7 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 
 **Main Components:**
 - **Navigation:** Using a hard-coded maze based on measurements of each node in the environment. Pathfinding is implemented using both the A* and Dijkstra's algorithms to determine the shortest path.
-- **Object Detection:** Implementing computer vision techniques for identifying soda bottles and delivery points.
+- **Object Detection:** Implementing computer vision techniques for identifying soda bottles.
 - **Manipulation:** Using robotic arms for picking up and placing soda bottles.
 
 ## System Architecture
