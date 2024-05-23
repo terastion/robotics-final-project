@@ -48,7 +48,7 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
    - `/manipulation/grip_command`: Published by Manipulation, subscribed by the robotic arm controller.
 
 
-### Example ROS Node Diagram
+### ROS Node Diagram
 ```plaintext
  Voice Control Node         Action Manager Node            Image Recognition Node
    |                               |                              |
