@@ -33,6 +33,10 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 **Flowchart:**
 ![Flowchart](Flowchart.png)
 
+## Demo Video
+
+[Click here to watch the demo video](robocourier_demo.mp4)
+
 ## ROS Node Diagram for RoboCourier
 
 1. **Nodes:**
