@@ -13,7 +13,8 @@ from std_msgs.msg import Empty, String
 import speak
 import record_voice
 import play_music
-client = OpenAI(api_key = "<API-KEY>")
+
+# Removed api key to push
 tools = [
             {
                 "type": "function",
@@ -84,7 +85,7 @@ class RoboCourrier(object):
 
         ### ROBOT CONTROL VARIABLES ###
         # provide list of color ranges to be use/be updated
-        self.position = to_index("V") # should be 32/AG for starting node
+        self.position = to_index("K") # should be 32/AG for starting node
         self.direction = 0
         self.path = []
         self.path_index = 0

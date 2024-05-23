@@ -7,13 +7,13 @@ from torch.utils.data import DataLoader, random_split
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 """
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor()
-    #transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+Non-OOP code that generates a model to use for object detection
 """
+
+# change images to add diversity
+# this should help to avoid overfitting
 transform = transforms.Compose([
     transforms.RandomResizedCrop(224),
     transforms.RandomHorizontalFlip(),
@@ -27,10 +27,13 @@ transform = transforms.Compose([
 data_dir = '/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/scripts/turtlebot_images'
 dataset = datasets.ImageFolder(data_dir, transform=transform)
 
+# set training dataset size 
 train_size = int(0.7 * len(dataset))
 val_size = len(dataset) - train_size
+# randomly set dataset
 train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
 
+# load datat from folders
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
@@ -43,7 +46,7 @@ model = model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.6, momentum=0.7, weight_decay=.001)
-
+# run 5 iteratiosn
 num_epochs = 5
 
 for epoch in range(num_epochs):
@@ -61,7 +64,7 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         running_loss += loss.item() * inputs.size(0)
-
+# print stats
     epoch_loss = running_loss / train_size
     print(f'Epoch {epoch}/{num_epochs - 1}, Loss: {epoch_loss:.4f}')
 
@@ -69,7 +72,7 @@ for epoch in range(num_epochs):
     model.eval()
     val_loss = 0.0
     corrects = 0
-    
+    # validate model
     with torch.no_grad():
         for inputs, labels in val_loader:
             inputs, labels = inputs.to(device), labels.to(device)
@@ -80,7 +83,7 @@ for epoch in range(num_epochs):
 
             _, preds = torch.max(outputs, 1)
             corrects += torch.sum(preds == labels.data)
-
+# calculate loss and accuracy
     val_loss = val_loss / val_size
     val_acc = corrects.double() / val_size
     print(f'Validation Loss: {val_loss:.4f}, Accuracy: {val_acc:.4f}')
@@ -90,7 +93,7 @@ torch.save(model.state_dict(), 'soda_classifier.pt')
 
 y_true = []
 y_pred = []
-
+# generate confusion matrix to see TPs
 with torch.no_grad():
     for inputs, labels in val_loader:
         inputs, labels = inputs.to(device), labels.to(device)

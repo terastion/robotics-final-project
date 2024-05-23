@@ -5,7 +5,7 @@ import time
 pygame.mixer.init()
 
 # Load the music file
-pygame.mixer.music.load("/home/tanjihui/catkin_ws/src/robotics-final-project/scripts/music.mp3")
+pygame.mixer.music.load("/home/vlois/catkin_ws/src/intro_robo/robotics-final-project/scripts/music.mp3")
 
 def play():
     # Play the music file indefinitely

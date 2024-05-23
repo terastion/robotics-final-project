@@ -7,7 +7,8 @@ from openai import OpenAI
 import json
 import record_voice
 import speak
-client = OpenAI(api_key = "<API-KEY>")
+
+# removed api key handler in order to push
 tools = [
             {
                 "type": "function",
