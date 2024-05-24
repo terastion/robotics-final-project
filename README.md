@@ -28,7 +28,7 @@ RoboCourier is designed to navigate through an environment, identify delivery lo
 
 **Manipulation:**
 - **Robotic Arm Control:** The robot’s arm is controlled using inverse kinematics to pick up and place soda bottles accurately.
-- **Gripper Mechanism:** A custom-designed gripper is used to handle different objects securely.
+- **Gripper Mechanism:** A gripper is used to handle different objects securely.
 
 **Flowchart:**
 ![Flowchart](Flowchart.png)
@@ -40,50 +40,39 @@ https://github.com/terastion/robotics-final-project/assets/46730580/f7a956f5-2fd
 ## ROS Node Diagram for RoboCourier
 
 1. **Nodes:**
-   - **Voice Control Node:** Handles voice commands and sends requests to the Action Manager.
    - **Action Manager Node:** Manages and dispatches actions based on requests from Voice Control.
-   - **Image Recognition Node:** Processes images from the camera and classifies objects.
-   - **Navigation Node:** Manages the robot’s movement, including driving straight and pursuing objects.
-   - **Manipulation Node:** Controls the robotic arm for grabbing and dropping objects.
+   - **Image Classification Node:** Processes images from the camera and classifies objects.
+   - **Main Node:** Manages the robot’s movement, including driving and pursuing objects. Also handles the camera and robot arm movements.
 
 2. **Topics:**
-   - `/voice_control/request`: Published by Voice Control, subscribed by Action Manager.
-   - `/action_manager/action`: Published by Action Manager, subscribed by Navigation and Manipulation Nodes.
-   - `/camera/image_raw`: Published by the camera, subscribed by Image Recognition.
-   - `/image_recognition/classification`: Published by Image Recognition, subscribed by Navigation and Manipulation Nodes.
-   - `/navigation/cmd_vel`: Published by Navigation, subscribed by the robot’s motors.
-   - `/manipulation/grip_command`: Published by Manipulation, subscribed by the robotic arm controller.
+   - `/robocourier/state`: Used by Main Node to notify Action Manager that it is ready to receive a new task.
+   - `/robocourier/robot_action`: Used by Action Manager to send the next action (object to retrieve) to the Main Node.
+   - `/camera/rgb/image_raw`: Used by the Main Node to ensure that the robot follows the maze lines, as well as for performing image recognition.
+   - `/robocourier/image_input`: Used by the Main Node to send an image to the Image Classification node.
+   - `/robocourier/image_output`: Used by the Image Classification node to send the classification result back to Main Node.
+   - `/cmd_vel`: Used by the Main Node for moving the robot.
+   - `/debug/range_update`: A debugging node used for adjusting the line maze color detection ranges (using `range_updater.py`)
 
 
 ### ROS Node Diagram
 ```plaintext
- Voice Control Node         Action Manager Node            Image Recognition Node
-   |                               |                              |
-   |--/voice_control/request---->  |                              |
-   |                               |--/action_manager/action--->  |
-   |<--/action_manager/action---   |                              |
-   |                               |                              |
- Camera Node  -----------------> Image Recognition Node  -------------------->  Navigation Node
-   |                             |                                  |
-   |--/camera/image_raw------->  |                                  |
-   |                             |--/image_recognition/classification--->  |
-   |<--/cmd_vel----------------  |                                  |
-   |                             |                                  |
- Manipulation Node  --------------------------------------------------------->
-   |                                                                          |
-   |<--/grip_command--------------------------------------------------------- |
+Action Manager Node             Main Node                Image Classification Node
+   |<--/robocourier/state---        |                              |
+   |--/robocourier/robot_action---->|                              |
+   |                                |--/robocourier/image_input--->|
+   |                                |<--/robocourier/image_output--|
+   |                                |                              |
+   |                            |/cmd_vel|                         |
+   |                     |/camera/rgb/image_raw|                   |
 ```
 
 ### Explanation:
-- **Voice Control Node** sends a request to the **Action Manager Node**.
-- **Action Manager Node** sends action commands to the **Navigation Node** and the **Manipulation Node**.
-- **Camera Node** publishes raw images to the **Image Recognition Node**.
-- **Image Recognition Node** processes images and publishes classifications.
-- **Navigation Node** receives commands and classifications to control the robot's movements.
-- **Manipulation Node** receives commands to control the robotic arm.
+- **Action Manager Node** handles user voice requests and sends action commands to the **Main Node**.
+- **Main Node** handles the navigation of the robot and movement of its arm. Also handles the robot camera which helps the robot follow the maze lines. Also sends images from the camera to the Image Classification Node.
+- **Image Classification Node** receives images from the Main Node for processing, and publishes classifications for the Main Node to see.
 
 ## Execution
-Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = '<YOUR_API_KEY_HERE>'` within both `main_node.py` and `action_manager.py`.
+Generate an OpenAI API Key, put the API key in `client = OpenAI(api_key = "API key")` within both `main_node.py` and `action_manager.py`.
 
 Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute path in your environment
   
@@ -99,24 +88,22 @@ Replace the `music.mp3`'s absolute path in `play_music.py` with its absolute pat
 
 `roslaunch robocourier action.launch`
 
-> **Note:** If you encounter any troubles, it is likely due to missing libraries. Use  `pip instal XXX` command to install necessary libraries.
+> **Note:** If you encounter any troubles, it is likely due to missing libraries. Use  `pip install XXX` command to install necessary libraries.
 
 ## Challenges, Future Work, and Takeaways
 
 **Challenges:**
-- **Sensor Integration:** Ensuring seamless integration and synchronization of data from multiple sensors.
-- **Navigation Accuracy:** Achieving precise navigation in dynamic environments with moving obstacles.
-- **Object Handling:** Designing a gripper mechanism that can handle various object shapes and sizes.
+- **Navigation Accuracy:** Due to the proximity of the orange lines in the maze, the camera often detects orange pixels outside of its intended path, which causes the robot to veer slightly off course, which could mean that the robot fails to grab the desired object. This is not a challenge that we were able to resolve fully due to the position and angle of the camera. However, one strategy we used to reduce the likelihood of this is to prioritize the detection of orange pixels towards the middle of the camera image. This decreased the likelihood of the robot from veering off course due to the camera having stray orange pixels in its image.
+- **Image Recognition**: None of the team members had a lot of experience using PyTorch or other image recognition models, so it took a lot of time and searching to figure out a good approach. Eventually, we settled on training our own image recognition model by taking thousands of pictures of the objects using the robot camera. This approach led to much greater accuracy in image detection over trying to fine-tune a previously trained model.
 
 **Future Work:**
-- **Enhanced Object Detection:** Implementing advanced machine learning techniques for better accuracy.
-- **Multi-Robot Coordination:** Expanding the system to coordinate multiple robots for collaborative tasks.
-- **Environment Adaptation:** Improving the robot's ability to adapt to new and changing environments.
+- **Enhanced Object Detection:** Given our success with the image recognition model, it could be possible to adapt it to recognize even more types of bottles, expanding the possible objects it can recognize. This would involve taking more pictures of the bottles using the robot camera and training a new model using this data. However, for the sake of our project and the small maze we are working with, we chose to train an image recognition model for just 3 different bottles.
+- **Multi-Robot Coordination:** One feature we wanted to explore during this project but could not was the possibility of having more than one robot performing delivery tasks simultaneously. This would involve the two robots communicating with each other so as to avoid colliding paths. This would also involve rewriting the main path-finding algorithm to take other robot(s)'s positions into account when finding the shortest path to an object.
 
 **Takeaways:**
-- Practical experience with SLAM and robotic manipulation.
 - Understanding the challenges and solutions in autonomous navigation and object handling.
 - Insights into the integration of various robotics components and algorithms.
+- Learn how to train and use an image recognition model.
 
 
 ## GitHub Repository

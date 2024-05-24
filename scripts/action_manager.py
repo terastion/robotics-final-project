@@ -7,12 +7,9 @@ from openai import OpenAI
 import json
 import record_voice
 import speak
-<<<<<<< HEAD
 
 # removed api key handler in order to push
-=======
 client = OpenAI(api_key = "API key")
->>>>>>> 1f9da4fa... committing
 tools = [
             {
                 "type": "function",

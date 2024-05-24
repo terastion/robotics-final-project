@@ -13,12 +13,9 @@ from std_msgs.msg import Empty, String
 import speak
 import record_voice
 import play_music
-<<<<<<< HEAD
 
 # Removed api key to push
-=======
 client = OpenAI(api_key = "API key")
->>>>>>> 1f9da4fa... committing
 tools = [
             {
                 "type": "function",
@@ -118,9 +115,6 @@ class RoboCourrier(object):
         # establish /camera/rgb/image_raw subscriber
         rospy.Subscriber("/camera/rgb/image_raw", Image, self.handle_image)
         self.bridge = cv_bridge.CvBridge()
-
-        # establish /scan subscriber
-        rospy.Subscriber("/scan", LaserScan, self.handle_scan)
 
         # establish /cmd_vel publisher
         self.vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
@@ -242,12 +236,6 @@ class RoboCourrier(object):
     def handle_range(self, data):
         color_ranges[data.color][int(data.is_upper)] = np.array(data.range)
         print("updated range to {}".format(data.range))
-
-
-    # handler for scanner
-    def handle_scan(self, data):
-        # TODO
-        pass
 
 
     # handler for image recognition output
